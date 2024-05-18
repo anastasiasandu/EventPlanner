@@ -1,15 +1,14 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const bodyParser = require('body-parser');
-const fs = require('fs');
-const path = require('path');
 const swaggerJsdoc = require('swagger-jsdoc');
 const swaggerUi = require('swagger-ui-express');
+const path = require('path'); // Import path module
 
 const authRoutes = require('./routes/auth');
-const eventRoutes = require('./routes/events');
-
+const userRoutes = require('./routes/users'); // Import user routes
 const errorHandler = require('./middleware/errorHandler');
+const authMiddleware = require('./middleware/auth');
 
 const app = express();
 
@@ -20,22 +19,6 @@ mongoose.connect('mongodb://localhost/eventplanner', {
 
 app.use(bodyParser.json());
 
-function extractRoutes(filePath) {
-    const routes = [];
-    const router = require(filePath);
-    router.stack.forEach(layer => {
-        if (layer.route) {
-            const { path, methods } = layer.route;
-            // Exclude routes with unwanted methods
-            if (!methods.delete && !methods.put) {
-                routes.push({ path, methods });
-            }
-        }
-    });
-    return routes;
-}
-
-// Define Swagger options
 const swaggerOptions = {
     definition: {
         openapi: '3.0.0',
@@ -44,44 +27,78 @@ const swaggerOptions = {
             version: '1.0.0',
             description: 'API documentation for Event Planner application',
         },
+        servers: [
+            {
+                url: 'http://localhost:3000', // Change this to match your server URL
+                description: 'Local server',
+            },
+        ],
+        components: { // Add components section for securitySchemes
+            securitySchemes: {
+                bearerAuth: {
+                    type: 'http',
+                    scheme: 'bearer',
+                    bearerFormat: 'JWT',
+                },
+            },
+        },
     },
-    apis: ['./routes/*.js'], // Path to the API routes
+    apis: [path.resolve(__dirname, './routes/*.js')], // Path to your route files
 };
 
-// Initialize Swagger-jsdoc
 const specs = swaggerJsdoc(swaggerOptions);
 
-// Serve Swagger UI
+// Extend Swagger UI to include authorization functionality
+const swaggerUiAuth = (req, res, next) => {
+    // Check if request path matches Swagger UI URL
+    if (req.url === '/api-docs/') {
+        // Get the token from the request headers if it exists
+        const authHeader = req.headers.authorization;
+        const token = authHeader ? authHeader.split(' ')[1] : null;
+
+        // Inject custom JavaScript to handle authorization
+        res.send(`
+            <script>
+                // Function to add authorization token to requests
+                function addAuthorization() {
+                    const token = '${token}'; // Get token from the authorization header
+                    if (token) {
+                        const authHeader = 'Bearer ' + token;
+                        // Set authorization header for Swagger UI requests
+                        window.ui.api.clientAuthorizations.authz = { 
+                            'Authorization': authHeader 
+                        };
+                    }
+                }
+
+                // Add authorization token on page load
+                window.onload = () => {
+                    addAuthorization();
+                };
+
+                // Event listener for changes in localStorage (e.g., token refresh)
+                window.addEventListener('storage', () => {
+                    addAuthorization();
+                });
+            </script>
+        `);
+    } else {
+        next(); // Pass request to the next middleware
+    }
+};
+
 app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs));
 
-// Define routes
 app.use('/auth', authRoutes);
-app.use('/events', eventRoutes);
+app.use('/users', userRoutes); // Mount user routes
 
-// Define routes for Swagger documentation
-app.get('/routes', (req, res) => {
-    const routes = [];
-
-    app._router.stack.forEach(layer => {
-        if (layer.route && !layer.route.path.startsWith('/routes')) {
-            const { path, methods } = layer.route;
-            routes.push({ path, methods });
-        }
-    });
-
-    const authRoutesPath = path.join(__dirname, 'routes', 'auth.js');
-    if (fs.existsSync(authRoutesPath)) {
-        const authRoutes = extractRoutes(authRoutesPath);
-        routes.push(...authRoutes);
+// Apply auth middleware to routes except /auth/login, /auth/signup, /api-docs, /, and /users
+app.use((req, res, next) => {
+    if (req.path === '/auth/login' || req.path === '/auth/signup' || req.path.startsWith('/api-docs') || req.path === '/') {
+        // Skip authentication for login, signup, api-docs, root, and user routes
+        return next();
     }
-
-    const eventRoutesPath = path.join(__dirname, 'routes', 'events.js');
-    if (fs.existsSync(eventRoutesPath)) {
-        const eventRoutes = extractRoutes(eventRoutesPath);
-        routes.push(...eventRoutes);
-    }
-
-    res.json({ routes });
+    authMiddleware(req, res, next);
 });
 
 // Default route
@@ -89,7 +106,6 @@ app.use('/', (req, res) => {
     res.send('Welcome to the API');
 });
 
-// Error handler middleware
 app.use(errorHandler);
 
 const PORT = process.env.PORT || 3000;

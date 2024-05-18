@@ -1,6 +1,8 @@
 const express = require('express');
 const router = express.Router();
 const jwt = require('jsonwebtoken');
+const bcrypt = require('bcrypt');
+const User = require('../models/User');
 
 /**
  * @swagger
@@ -42,7 +44,14 @@ const jwt = require('jsonwebtoken');
  *       '500':
  *         description: Internal server error
  */
-const bcrypt = require('bcrypt');
+
+const verifyToken = (token) => {
+    try {
+        return jwt.verify(token, 'secretkey');
+    } catch (error) {
+        return null;
+    }
+};
 
 router.post('/login', async (req, res) => {
     try {
@@ -59,12 +68,11 @@ router.post('/login', async (req, res) => {
         }
         // Generate JWT token
         const token = jwt.sign({ userId: user._id }, 'secretkey');
-        res.json({ token });
+        res.json({ token }); // Return the generated token
     } catch (error) {
         res.status(500).json({ error: error.message });
     }
 });
-
 
 /**
  * @swagger
@@ -94,9 +102,6 @@ router.post('/login', async (req, res) => {
  *       '500':
  *         description: Internal server error
  */
-
-const User = require('../models/User');
-
 router.post('/signup', async (req, res) => {
     try {
         const { username, password, email } = req.body;
@@ -137,7 +142,43 @@ router.post('/signup', async (req, res) => {
     }
 });
 
+/**
+ * @swagger
+ * /auth/logout:
+ *   post:
+ *     summary: Log out a user
+ *     description: Log out a user and invalidate the JWT token.
+ *     tags: [Authentication]
+ *     security:
+ *       - BearerAuth: []
+ *     responses:
+ *       '200':
+ *         description: Successful logout
+ *       '401':
+ *         description: Unauthorized
+ */
+router.post('/logout', (req, res) => {
+    // Extract token from the request headers
+    const authHeader = req.headers.authorization;
+    if (!authHeader || !authHeader.startsWith('Bearer ')) {
+        return res.status(401).json({ message: 'Access denied. No token provided.' });
+    }
 
+    const token = authHeader.split(' ')[1];
+    if (!token) {
+        return res.status(401).json({ message: 'Access denied. No token provided.' });
+    }
 
+    // Verify and decode the token
+    const decodedToken = verifyToken(token);
+    if (!decodedToken) {
+        return res.status(401).json({ message: 'Invalid token' });
+    }
+
+    // Invalidation logic (example: token blacklist)
+    // Store the token in a blacklist database or cache
+
+    res.status(200).json({ message: 'Logout successful' });
+});
 
 module.exports = router;
