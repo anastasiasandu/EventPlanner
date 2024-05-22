@@ -151,7 +151,6 @@ const current = async (req, res) => {
  *         description: Internal server error
  */
 const refresh = async (req, res) => {
-  console.log(req.headers.authorization.split(" ")[1])
   let refresh = req.headers;
   if (refresh) {
     try {
@@ -163,7 +162,7 @@ const refresh = async (req, res) => {
 
       return res.status(200).json({ access: access });
     } catch (e) {
-      console.log(e);
+
       return res.status(401).json({ details: 'bad token' });
     }
   }

@@ -71,14 +71,27 @@ const getUser = async (req, res) => {
 const updateUser = async (req, res) => {
   try {
     const { username, email, password } = req.body;
-    const hashedPassword = password ? await bcrypt.hash(password, 12) : undefined;
 
-    const updatedData = {
-      username,
-      email,
-      ...(hashedPassword && { password: hashedPassword }),
-    };
+    // Initialize the update data object
+    const updatedData = {};
 
+    // Conditionally add fields to the update data
+    if (username) {
+      updatedData.username = username;
+    }
+    if (email) {
+      updatedData.email = email;
+    }
+    if (password) {
+      updatedData.password = await bcrypt.hash(password, 12);
+    }
+
+    // Check if there's anything to update
+    if (Object.keys(updatedData).length === 0) {
+      return res.status(400).json({ details: 'No update data provided' });
+    }
+
+    // Perform the update
     const updatedUser = await prisma.user.update({
       where: { id: req.user.id },
       data: updatedData,
@@ -86,10 +99,19 @@ const updateUser = async (req, res) => {
 
     return res.status(200).json(updatedUser);
   } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
+      const errors = {};
+      if (e.meta.target.includes('User_email_key')) {
+        errors.email = ['This email is already in use'];
+      } else if (e.meta.target.includes('User_username_key')) {
+        errors.username = ['This username is already in use'];
+      }
+      return res.status(400).send(errors);
+    }
+    console.error(e);
     return res.status(500).json({ details: 'Internal server error' });
   }
-};
-
+}
 /**
  * @swagger
  * /api/user:
@@ -153,94 +175,56 @@ const addFriend = async (req, res) => {
 
 /**
  * @swagger
- * /api/user/friend/{friendId}:
- *   get:
- *     summary: Get a friend's details by their ID
- *     tags: [Friend]
- *     parameters:
- *       - in: path
- *         name: friendId
- *         schema:
- *           type: string
- *         required: true
- *         description: Friend ID
- *     responses:
- *       200:
- *         description: Friend details retrieved successfully
- *       404:
- *         description: Friend not found
- *       500:
- *         description: Internal server error
- */
-const getSingleFriend = async (req, res) => {
-  try {
-    const { friendId } = req.params;
-
-    const friend = await prisma.friend.findFirst({
-      where: {
-        OR: [
-          { user1Id: req.user.id, user2Id: friendId },
-          { user1Id: friendId, user2Id: req.user.id },
-        ],
-      },
-      include: {
-        user1: true,
-        user2: true,
-      },
-    });
-
-    if (!friend) {
-      return res.status(404).json({ details: 'Friend not found' });
-    }
-
-    const friendDetails = friend.user1Id === req.user.id ? friend.user2 : friend.user1;
-
-    return res.status(200).json(friendDetails);
-  } catch (e) {
-    return res.status(500).json({ details: 'Internal server error' });
-  }
-};
-
-/**
- * @swagger
  * /api/user/friends:
  *   get:
  *     summary: Get all friends of the current user
  *     tags: [Friend]
+ *     security:
+ *       - bearerAuth: []
  *     responses:
  *       200:
  *         description: Friends retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                     description: The user ID
+ *                   username:
+ *                     type: string
+ *                     description: The username of the friend
+ *                   email:
+ *                     type: string
+ *                     description: The email of the friend
+ *       401:
+ *         description: Unauthorized
  *       500:
  *         description: Internal server error
  */
 const getAllFriends = async (req, res) => {
-  try {
-    const friends = await prisma.friend.findMany({
-      where: {
-        OR: [
-          { user1Id: req.user.id },
-          { user2Id: req.user.id },
-        ],
-      },
-      include: {
-        user1: true,
-        user2: true,
-      },
-    });
 
-    const friendList = friends.map(friend => {
-      if (friend.user1Id === req.user.id) {
-        return friend.user2;
-      } else {
-        return friend.user1;
-      }
-    });
 
-    return res.status(200).json(friendList);
-  } catch (e) {
-    return res.status(500).json({ details: 'Internal server error' });
-  }
-};
+    try {
+      const friends = await prisma.friend.findMany({
+        where: {user1Id: req.user.id},
+        include: {
+          user2: true,
+        },
+      });
+
+      const friendList = friends.map(friend => friend.user2);
+
+      return res.status(200).json(friendList);
+    } catch (e) {
+      return res.status(500).json({details: 'Internal server error'});
+    }
+
+}
+
 
 /**
  * @swagger
@@ -282,4 +266,4 @@ const deleteFriend = async (req, res) => {
   }
 };
 
-module.exports = { getUser, updateUser, deleteUser, addFriend, getSingleFriend, getAllFriends, deleteFriend };
+module.exports = { getUser, updateUser, deleteUser, addFriend, getAllFriends, deleteFriend };

@@ -32,8 +32,6 @@ const signupValidator = async (data) => {
 const loginValidator = async (data) => {
   const { email, password } = data;
   let errors = {};
-  console.log("/////////");
-  console.log(data);
 
   let user = await prisma.user.findUnique({ where: {email: email} });
   if (!user) {

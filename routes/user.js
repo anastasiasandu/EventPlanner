@@ -1,17 +1,13 @@
 const express = require('express');
-const router = express.Router();
 const { getUser, updateUser, deleteUser, addFriend, getSingleFriend, getAllFriends, deleteFriend } = require('../handlers/user');
-const { authenticate } = require('../middleware/authenticate');
-
-// Middleware to protect routes
-router.use(authenticate);
+const router = express.Router();
+const authToken = require("../middlewares/authMiddlewares")
 
 router.get('/:id', getUser);
-router.put('/', updateUser);
-router.delete('/', deleteUser);
-router.post('/friends', addFriend);
-router.get('/friend/:friendId', getSingleFriend);
-router.get('/friends', getAllFriends);
-router.delete('/friends', deleteFriend);
+router.put('/', authToken, updateUser);
+router.delete('/', authToken, deleteUser);
+router.post('/friends', authToken, addFriend);
+router.get('/friends', authToken, getAllFriends);
+router.delete('/friends', authToken, deleteFriend);
 
 module.exports = router;
