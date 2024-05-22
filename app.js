@@ -1,46 +1,49 @@
 const express = require('express');
-
-const auth = require('./routes/auth');
-const user = require('./routes/user');
-const event = require('./routes/event')
-
 const cors = require('cors');
-
-const { swaggerUi, specs } = require('./docs/swagger');
 const dotenv = require('dotenv');
+const cookieParser = require('cookie-parser');
 const { connect } = require('./prisma/connection');
-
+const authRoutes = require('./routes/auth');
+const userRoutes = require('./routes/user');
+const eventRoutes = require('./routes/event');
+const postRoutes = require('./routes/post'); // Import Post routes
+const { swaggerUi, specs } = require('./docs/swagger'); // Import Swagger setup
 
 dotenv.config();
 
 const app = express();
 
-var whitelist = ['http://localhost:3000', 'ws://localhost:3000'];
-var corsOptionsDelegate = function (req, callback) {
-  var corsOptions;
+const whitelist = ['http://localhost:3000', 'ws://localhost:3000'];
+const corsOptionsDelegate = (req, callback) => {
+  let corsOptions;
   if (whitelist.indexOf(req.header('Origin')) !== -1) {
-    corsOptions = { origin: true, credentials: true }; // reflect (enable) the requested origin in the CORS response
+    corsOptions = { origin: true, credentials: true };
   } else {
-    corsOptions = { origin: false }; // disable CORS for this request
+    corsOptions = { origin: false };
   }
-  callback(null, corsOptions); // callback expects two parameters: error and options
+  callback(null, corsOptions);
 };
 
 app.use(cors(corsOptionsDelegate));
-
 app.use(express.json());
+app.use(cookieParser());
 
+// Setup Swagger
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(specs));
-app.use('/api/auth', auth);
-app.use('/api/user', user);
-app.use('/api/event', event)
-// app.get('/activate', activate);
+
+// Use routes
+app.use('/api/auth', authRoutes);
+app.use('/api/user', userRoutes);
+app.use('/api/event', eventRoutes);
+app.use('/api/post', postRoutes); // Use Post routes
 
 async function listen() {
   await connect();
-  app.listen('8000', () => {
+  app.listen(8000, () => {
     console.log('server running on 8000');
   });
 }
 
 listen();
+
+module.exports = app;

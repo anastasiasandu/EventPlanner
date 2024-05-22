@@ -1,5 +1,5 @@
 const express = require('express');
-const authToken = require("../middlewares/authMiddlewares")
+const authenticateToken = require('../middlewares/authMiddlewares'); // Adjust the path as necessary
 const {
   getAllEvents,
   getEventById,
@@ -7,15 +7,21 @@ const {
   updateEvent,
   deleteEvent,
   participateInEvent,
+  getEventParticipants,
+  leaveEvent
 } = require('../handlers/event');
 
 const router = express.Router();
 
-router.get('/events', authToken, getAllEvents);
-router.get('/events/:id', authToken, getEventById);
-router.post('/events', authToken, createEvent);
-router.put('/events/:id', authToken, updateEvent);
-router.delete('/events/:id', authToken, deleteEvent);
-router.post('/events/:id/participate', authToken, participateInEvent);
+
+router.get('/', getAllEvents);
+router.get('/:id', getEventById);
+router.post('/', authenticateToken, createEvent);
+router.put('/:id', authenticateToken, updateEvent);
+router.delete('/:id', authenticateToken, deleteEvent);
+router.post('/:id/participate', authenticateToken, participateInEvent);
+router.get('/:id/participants', getEventParticipants);
+router.post('/:id/leave', authenticateToken, leaveEvent);
+
 
 module.exports = router;

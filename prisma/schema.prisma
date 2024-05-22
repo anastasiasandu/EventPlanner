@@ -71,6 +71,18 @@ model User {
   notifications       Notification[]
   friends             Friend[]       @relation("Friendship")
   friendsOf           Friend[]       @relation("FriendshipOf")
+  posts               Post[]
+}
+
+model Post {
+  id        String   @id @default(cuid())
+  content   String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  eventId   String
+  event     Event    @relation(fields: [eventId], references: [id])
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
 }
 
 model Friend {
@@ -89,12 +101,12 @@ model Event {
   startTime    Float? // Use Float for storing Unix timestamps
   endTime      Float?
   location     String?
-  public       Boolean      @default(false)
   organizerId  String
   organizer    User         @relation("CreatedEvents", fields: [organizerId], references: [id])
   participants User[]       @relation("ParticipatingEvents")
   tags         EventTags
   invitations  Invitation[]
+  posts        Post[]
 }
 
 model Invitation {
@@ -110,11 +122,10 @@ model Invitation {
 }
 
 model Notification {
-  id               String           @id @default(uuid())
-  userId           String
-  notificationType NotificationType
-  message          String
-  time             Float // Use Float for storing Unix timestamps
-  read             Boolean          @default(false)
-  user             User             @relation(fields: [userId], references: [id])
+  id        String   @id @default(uuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  message   String
+  createdAt DateTime @default(now())
+  read      Boolean  @default(false)
 }

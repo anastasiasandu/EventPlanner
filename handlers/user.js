@@ -1,7 +1,7 @@
 const { PrismaClient, Prisma } = require('@prisma/client');
 const bcrypt = require('bcrypt');
 const _ = require('lodash');
-
+const { createNotification } = require('../services/notificationService');
 const prisma = new PrismaClient();
 
 /**
@@ -96,7 +96,7 @@ const updateUser = async (req, res) => {
       where: { id: req.user.id },
       data: updatedData,
     });
-
+    await createNotification(req.user.id, `You successfully updated the account!`);
     return res.status(200).json(updatedUser);
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === 'P2002') {
@@ -156,22 +156,44 @@ const deleteUser = async (req, res) => {
  *       500:
  *         description: Internal server error
  */
+
 const addFriend = async (req, res) => {
   try {
     const { friendId } = req.body;
 
-    await prisma.friend.createMany({
-      data: [
-        { user1Id: req.user.id, user2Id: friendId },
-        { user1Id: friendId, user2Id: req.user.id },
-      ],
+    // Check if the friendship already exists
+    const existingFriendship = await prisma.friend.findFirst({
+      where: {
+        OR: [
+          { user1Id: req.user.id, user2Id: friendId },
+          { user1Id: friendId, user2Id: req.user.id },
+        ],
+      },
     });
+
+    if (existingFriendship) {
+      return res.status(400).json({ details: 'Friendship already exists' });
+    }
+
+    // Create the friendship in both directions
+    await prisma.friend.create({
+      data: { user1Id: req.user.id, user2Id: friendId },
+    });
+    await prisma.friend.create({
+      data: { user1Id: friendId, user2Id: req.user.id },
+    });
+
+    await createNotification(friendId, `${req.user.username} added you as a friend`);
+    await createNotification(req.user.id, `You successfully added a friend`);
 
     return res.status(200).json({ details: 'Friend added successfully' });
   } catch (e) {
+    console.log(e);
     return res.status(500).json({ details: 'Internal server error' });
   }
 };
+
+
 
 /**
  * @swagger
@@ -265,5 +287,48 @@ const deleteFriend = async (req, res) => {
     return res.status(500).json({ details: 'Internal server error' });
   }
 };
+/**
+ * @swagger
+ * /api/user/notifications:
+ *   get:
+ *     summary: Get all notifications for the current user
+ *     tags: [User]
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: Notifications retrieved successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: array
+ *               items:
+ *                 type: object
+ *                 properties:
+ *                   id:
+ *                     type: string
+ *                   message:
+ *                     type: string
+ *                   createdAt:
+ *                     type: string
+ *                     format: date-time
+ *       401:
+ *         description: Unauthorized
+ *       500:
+ *         description: Internal server error
+ */
+const getAllNotifications = async (req, res) => {
+  try {
+    const notifications = await prisma.notification.findMany({
+      where: { userId: req.user.id },
+      orderBy: { createdAt: 'desc' },
+    });
 
-module.exports = { getUser, updateUser, deleteUser, addFriend, getAllFriends, deleteFriend };
+    return res.status(200).json(notifications);
+  } catch (e) {
+    console.error(e);
+    return res.status(500).json({ details: 'Internal server error' });
+  }
+};
+
+module.exports = { getUser, updateUser, deleteUser, addFriend, getAllFriends, deleteFriend, getAllNotifications };

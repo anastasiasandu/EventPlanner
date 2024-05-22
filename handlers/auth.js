@@ -169,23 +169,4 @@ const refresh = async (req, res) => {
   return res.status(500);
 };
 
-/**
- * @swagger
- * /api/auth/logout:
- *   post:
- *     summary: Log out the current user
- *     tags: [Auth]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Successfully logged out
- *       401:
- *         description: Unauthorized
- */
-const logout = async (req, res) => {
-  let user = req.user;
-  return res.clearCookie('refresh').status(200).json({ details: 'successfully logged out' });
-};
-
-module.exports = { signup, login, current, refresh, logout };
+module.exports = { signup, login, current, refresh };

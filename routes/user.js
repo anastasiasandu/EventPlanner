@@ -1,5 +1,5 @@
 const express = require('express');
-const { getUser, updateUser, deleteUser, addFriend, getSingleFriend, getAllFriends, deleteFriend } = require('../handlers/user');
+const { getUser, updateUser, deleteUser, addFriend, getAllFriends, deleteFriend, getAllNotifications } = require('../handlers/user');
 const router = express.Router();
 const authToken = require("../middlewares/authMiddlewares")
 
@@ -9,5 +9,7 @@ router.delete('/', authToken, deleteUser);
 router.post('/friends', authToken, addFriend);
 router.get('/friends', authToken, getAllFriends);
 router.delete('/friends', authToken, deleteFriend);
+router.get('/notifications', authToken, getAllNotifications)
+
 
 module.exports = router;
