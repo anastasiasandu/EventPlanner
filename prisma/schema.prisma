@@ -1,0 +1,120 @@
+// Prisma schema.prisma
+
+datasource db {
+  provider = "mysql"
+  url      = "mysql://root:10@127.0.0.1:3306/eventplanner"
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+enum Role {
+  ADMIN
+  USER
+}
+
+enum InvitationType {
+  EVENT
+  FRIEND
+  REQUEST
+}
+
+enum EventTags {
+  ART
+  BOOK_CLUB
+  BUSINESS
+  CHARITY
+  CONCERT
+  CONFERENCE
+  CULTURE
+  EDUCATION
+  FAMILY
+  FASHION
+  FESTIVAL
+  FITNESS
+  FOOD
+  GAMING
+  HEALTH
+  LECTURE
+  MEETUP
+  MOVIE
+  MUSIC
+  NETWORKING
+  OTHER
+  OUTDOORS
+  PARTY
+  PHOTOGRAPHY
+  SCIENCE
+  SPORTS
+  TECH
+  THEATRE
+  TRAVEL
+  WORKSHOP
+}
+
+enum NotificationType {
+  INVITATION
+  EVENT_UPDATE
+  SYSTEM
+}
+
+model User {
+  id                  String         @id @default(uuid())
+  username            String         @unique
+  email               String         @unique
+  password            String
+  role                Role           @default(USER)
+  tokenVersion        Int            @default(0)
+  createdEvents       Event[]        @relation("CreatedEvents")
+  participatingEvents Event[]        @relation("ParticipatingEvents")
+  notifications       Notification[]
+  friends             Friend[]       @relation("Friendship")
+  friendsOf           Friend[]       @relation("FriendshipOf")
+}
+
+model Friend {
+  user1Id String
+  user2Id String
+  user1   User   @relation("Friendship", fields: [user1Id], references: [id])
+  user2   User   @relation("FriendshipOf", fields: [user2Id], references: [id])
+
+  @@id([user1Id, user2Id])
+}
+
+model Event {
+  id           String       @id @default(uuid())
+  title        String
+  description  String?
+  startTime    Float? // Use Float for storing Unix timestamps
+  endTime      Float?
+  location     String?
+  public       Boolean      @default(false)
+  organizerId  String
+  organizer    User         @relation("CreatedEvents", fields: [organizerId], references: [id])
+  participants User[]       @relation("ParticipatingEvents")
+  tags         EventTags
+  invitations  Invitation[]
+}
+
+model Invitation {
+  id          String         @id @default(uuid())
+  endUserId   String?
+  startUserId String?
+  type        InvitationType
+  eventId     String?
+  time        String
+  endUser     String
+  startUser   String
+  event       Event?         @relation(fields: [eventId], references: [id])
+}
+
+model Notification {
+  id               String           @id @default(uuid())
+  userId           String
+  notificationType NotificationType
+  message          String
+  time             Float // Use Float for storing Unix timestamps
+  read             Boolean          @default(false)
+  user             User             @relation(fields: [userId], references: [id])
+}
