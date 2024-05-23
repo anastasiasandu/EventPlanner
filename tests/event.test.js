@@ -1,5 +1,5 @@
 const request = require('supertest');
-const app = require('../app'); // Ensure the path is correct
+const {closeServer, app} = require('../app'); // Ensure the path is correct
 const { PrismaClient } = require('@prisma/client');
 const prisma = new PrismaClient();
 
@@ -27,6 +27,8 @@ beforeAll(async () => {
 afterAll(async () => {
   // Clean up the test user
   await prisma.$disconnect();
+
+  await closeServer();
 });
 
 describe('Event Endpoints', () => {

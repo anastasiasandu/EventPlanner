@@ -4,7 +4,6 @@ const _ = require('lodash');
 const bcrypt = require('bcrypt');
 const jwt = require('jsonwebtoken');
 
-1
 const prisma = new PrismaClient();
 
 /**
@@ -68,6 +67,7 @@ const signup = async (req, res) => {
       errors[e.meta.target[0]] = [`${e.meta.target} already exists`];
       return res.status(400).send(errors);
     }
+    console.log(e);
     return res.status(500).json({ details: 'Internal server error' });
   }
 };
